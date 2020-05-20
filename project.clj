@@ -5,4 +5,5 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.apache.pdfbox/pdfbox "2.0.19"]]
-  :repl-options {:init-ns pdf-bookmark-maker.core})
+  :repl-options {:init-ns pdf-bookmark-maker.core}
+  :main pdf-bookmark-maker.core/-main)

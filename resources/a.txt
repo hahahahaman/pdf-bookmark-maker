@@ -1,4 +1,4 @@
-Contents 2
+Contents 12
 1. On Self-Organizing Systems and Their Environments 14
 2. Computation in Neural Nets 34
 3. What Is Memory that It May Have Hindsight and Foresight as well? 114
