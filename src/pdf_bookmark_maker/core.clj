@@ -14,7 +14,8 @@
    org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
    org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem)
   (:require [clojure.java.io :as io]
-            [clojure.string :as s]))
+            [clojure.string :as s])
+  (:gen-class))
 
 (def indent-num-spaces 1)
 (def indent (s/join (repeat indent-num-spaces " ")))

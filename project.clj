@@ -6,4 +6,7 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.apache.pdfbox/pdfbox "2.0.19"]]
   :repl-options {:init-ns pdf-bookmark-maker.core}
-  :main pdf-bookmark-maker.core/-main)
+  :main pdf-bookmark-maker.core
+  :profiles {:uberjar {:aot [pdf-bookmark-maker.core]}}
+  :jar-name "pbm.jar"
+  :uberjar-name "pbm-uber.jar")

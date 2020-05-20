@@ -40,7 +40,10 @@ Contents 14
 Index 50
 ```
 
-### 
+## Useful resources 
+
+### How to make a working uberjar 
+https://defunsm.github.io/posts/2016-08-28-jar/
 
 ## License
 
