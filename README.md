@@ -40,10 +40,40 @@ Contents 14
 Index 50
 ```
 
-## Useful resources 
+### make a standalone executable with lein-binplus
 
-### How to make a working uberjar 
-https://defunsm.github.io/posts/2016-08-28-jar/
+Install lein-binplus
+
+To install it in your ~/.lein/profiles.clj just add the dependency like:
+
+``` clojure
+
+{:user
+ {:plugins
+  [[lein-binplus "0.6.6"]]}}
+
+```
+
+`lein bin`
+
+https://github.com/BrunoBonacci/lein-binplus
+
+### alternatively create an uberjar 
+
+create an uberjar in the target/ folder:
+
+`lein uberjar`
+
+I copy the uberjar into ~/bin/ and create a shell file pbm.sh:
+
+``` sh
+
+java -jar pbm-uber.jar "$1" "$2" "$3"
+
+```
+
+`chmod +x ~/bin/pbm.sh`
+
 
 ## License
 
