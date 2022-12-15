@@ -13,7 +13,7 @@ pbm print ${PDF}
 ### Add bookmarks
 
 ```
-pbm add ${BOOKMARK_FILE} ${PDF_FILE} ${OUTPUT_FILE}
+pbm add ${BOOKMARK_FILE} ${PDF_FILE} ${PAGE_OFFSET (optional)}
 ```
 
 Bookmark files are formatted text files. A bookmark line appears in
@@ -23,8 +23,13 @@ this format:
 ${INDENT} ${TEXT} ${PAGE}
 ```
 
-If ${PAGE} is empty then the bookmark link will default to the first
+The `${PAGE_OFFSET}` variable will add a bookmark to pdf file at `${PAGE +
+PAGE_OFFSET}`.
+
+If `${PAGE}` is empty then the bookmark link will default to the first
 page or the same page as the parent bookmark.
+
+`${PAGE_OFFSET}` defaults to 0.
 
 #### Example File
 

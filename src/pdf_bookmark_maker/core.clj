@@ -20,6 +20,17 @@
 (def indent-num-spaces 1)
 (def indent (s/join (repeat indent-num-spaces " ")))
 
+(defn add-page-offset
+  "adds OFFSET to the page numbers at the end of each line of a bookmark file.
+  This is useful because often the page number in the contents of a book are
+  different from the page number in the pdf file."
+  [filepath offset]
+  (with-open [rdr (io/reader filepath)]
+    (doseq [line (line-seq rdr)]
+      (let [arr (s/split line #" ")
+            num (Long/parseLong (last arr))]
+        (println (s/join " " (-> arr pop (conj (+ offset num)))))))))
+
 (defn try-get-as-pdf [pdf-file-path]
   (let [^File pdf-file (io/as-file pdf-file-path)
         random-access-file (RandomAccessFile. pdf-file "r")
@@ -125,99 +136,121 @@
 (defn conj-atom! [a val]
   (swap! a (fn [x] (conj x val))))
 
-(defn add-bookmarks [text-file-path pdf-file-path output-path]
-  (println "Start adding bookmarks from" text-file-path "to" pdf-file-path "Output at:" output-path)
-  (let [document (load-pdf pdf-file-path)]
-    (if (.isEncrypted document)
-      (println "Error: Cannot add bookmarks to encrypted document.")
+(defn add-bookmarks
+  ([text-file-path pdf-file-path]
+   (add-bookmarks text-file-path pdf-file-path pdf-file-path))
+  ([text-file-path pdf-file-path output-path]
+   (add-bookmarks text-file-path pdf-file-path output-path 0))
+  ([text-file-path pdf-file-path output-path offset]
+   (println "Start adding bookmarks from" text-file-path "to" pdf-file-path "Output at:" output-path)
+   (let [document (load-pdf pdf-file-path)]
+     (if (.isEncrypted document)
+       (println "Error: Cannot add bookmarks to encrypted document.")
 
-      (let [get-page (fn [page-num] (-> document (.getPages) (.get (dec page-num))))
-            outline (PDDocumentOutline.)
-            dest (PDPageFitWidthDestination.)
-            error (atom false)
-            set-error! (fn [msg]
-                         (set-atom! error true)
-                         (println msg))]
-        (with-open [rdr (io/reader text-file-path)]
-          (let [bookmark-stack (atom '())
-                prev-num-indents (atom 0)
-                line-num (atom 0)]
-            (with-open [rdr (io/reader text-file-path)]
-              (doseq [line (line-seq rdr)
-                      :while (not @error)]
-                (swap! line-num inc)
+       (let [get-page (fn [page-num] (-> document (.getPages) (.get (dec page-num))))
+             outline (PDDocumentOutline.)
+             dest (PDPageFitWidthDestination.)
+             error (atom false)
+             set-error! (fn [msg]
+                          (set-atom! error true)
+                          (println msg))]
+         (let [bookmark-stack (atom '())
+               prev-num-indents (atom 0)
+               line-num (atom 0)]
+           (with-open [rdr (io/reader text-file-path)]
+             (doseq [line (line-seq rdr)
+                     :while (not @error)]
+               (swap! line-num inc)
 
-                (when (not (= "" (s/trim line)))
-                  ;; create a bookmark
-                  (let [trimmed-line (s/trim line)
-                        split-array (s/split trimmed-line #"\s")
-                        num-indents (num-front-spaces line)
-                        read-last-num (str->num (last split-array))
-                        page-num (if (number? read-last-num) read-last-num 1)
-                        bookmark (PDOutlineItem.)
-                        dest (PDPageFitWidthDestination.)
-                        title (-> trimmed-line
-                                  (subs 0 (max 0 (- (count trimmed-line)
-                                                    (if (number? read-last-num)
-                                                      (inc (count (last split-array)))
-                                                      0)))))]
-                    (cond (= title "")
-                          (set-error! (str "ERROR: Bookmark file invalid title. line: " @line-num))
+               (when (not (= "" (s/trim line)))
+                 ;; create a bookmark
+                 (let [trimmed-line (s/trim line)
+                       split-array (s/split trimmed-line #"\s")
+                       num-indents (num-front-spaces line)
+                       read-last-num (str->num (last split-array))
+                       page-num (+ (if (number? read-last-num) read-last-num 1)
+                                   offset)
+                       bookmark (PDOutlineItem.)
+                       dest (PDPageFitWidthDestination.)
+                       title (-> trimmed-line
+                                 (subs 0 (max 0 (- (count trimmed-line)
+                                                   (if (number? read-last-num)
+                                                     (inc (count (last split-array)))
+                                                     0)))))]
+                   (cond (= title "")
+                         (set-error! (str "ERROR: Bookmark file invalid title. line: " @line-num))
 
-                          (or (-> page-num (< 1))
-                              (-> page-num (> (.getNumberOfPages document))))
-                          (set-error! (str "ERROR: Bookmark file page number out of range. line: " @line-num))
+                         (or (-> page-num (< 1))
+                             (-> page-num (> (.getNumberOfPages document))))
+                         (set-error! (str "ERROR: Bookmark file page number out of range. line: " @line-num))
 
-                          :else
-                          (do
-                            ;; (println title ", page num:" page-num ", num indents:" num-indents)
-                            (.setPage dest (get-page page-num))
-                            (.setDestination bookmark dest)
-                            (.setTitle bookmark title)
+                         :else
+                         (do
+                           ;; (println title ", page num:" page-num ", num indents:" num-indents)
+                           (.setPage dest (get-page page-num))
+                           (.setDestination bookmark dest)
+                           (.setTitle bookmark title)
 
-                            (if (= num-indents 0)
-                              (do
-                                (.addLast outline bookmark)
-                                (set-atom! bookmark-stack (list bookmark)))
+                           (if (= num-indents 0)
+                             (do
+                               (.addLast outline bookmark)
+                               (set-atom! bookmark-stack (list bookmark)))
 
-                              (cond
-                                (> num-indents @prev-num-indents)
-                                (if (-> (- num-indents @prev-num-indents) (> 1))
-                                  (set-error! (str "ERROR: Bookmark file too many indents. line: " @line-num))
-                                  (do
-                                    (.addLast (peek @bookmark-stack) bookmark)
-                                    (conj-atom! bookmark-stack bookmark)))
+                             (cond
+                               (> num-indents @prev-num-indents)
+                               (if (-> (- num-indents @prev-num-indents) (> 1))
+                                 (set-error! (str "ERROR: Bookmark file too many indents. line: " @line-num))
+                                 (do
+                                   (.addLast (peek @bookmark-stack) bookmark)
+                                   (conj-atom! bookmark-stack bookmark)))
 
-                                (= num-indents @prev-num-indents)
-                                (do
-                                  (pop-atom! bookmark-stack)
-                                  (.addLast (peek @bookmark-stack) bookmark)
-                                  (conj-atom! bookmark-stack bookmark))
+                               (= num-indents @prev-num-indents)
+                               (do
+                                 (pop-atom! bookmark-stack)
+                                 (.addLast (peek @bookmark-stack) bookmark)
+                                 (conj-atom! bookmark-stack bookmark))
 
-                                :else
-                                (if (-> (inc (- @prev-num-indents num-indents)) (> (count @bookmark-stack)))
-                                  (set-error! (str "ERROR: Bookmark file too many indents. line:" @line-num))
-                                  (do
-                                    (dotimes [x (inc (- @prev-num-indents num-indents))]
-                                      (pop-atom! bookmark-stack))
-                                    (.addLast (peek @bookmark-stack) bookmark)
-                                    (conj-atom! bookmark-stack bookmark)))))
-                            (set-atom! prev-num-indents num-indents))))))))
-          (when (not @error)
-            (println "Saving PDF to" output-path)
-            (-> document (.getDocumentCatalog) (.setDocumentOutline outline))
-            (.save document output-path)))))
-    (when document
-      (.close document))))
+                               :else
+                               (if (-> (inc (- @prev-num-indents num-indents)) (> (count @bookmark-stack)))
+                                 (set-error! (str "ERROR: Bookmark file too many indents. line:" @line-num))
+                                 (do
+                                   (dotimes [x (inc (- @prev-num-indents num-indents))]
+                                     (pop-atom! bookmark-stack))
+                                   (.addLast (peek @bookmark-stack) bookmark)
+                                   (conj-atom! bookmark-stack bookmark)))))
+                           (set-atom! prev-num-indents num-indents))))))))
+
+         (when (not @error)
+           (println "Saving PDF to" output-path)
+           (-> document (.getDocumentCatalog) (.setDocumentOutline outline))
+           (.save document output-path))))
+     (when document
+       (.close document)))))
 
 (defn usage []
   (println (->>
             ["pbm - PDF Bookmark Maker"
              ""
              "Usage:"
-             "  pbm add ${BOOKMARK_FILE} ${PDF_FILE} ${OUTPUT_FILE}"
+             "  pbm add ${BOOKMARK_FILE} ${PDF_FILE} ${PAGE_OFFSET (optional)}"
+             ;; "  pbm add ${BOOKMARK_FILE} ${PDF_FILE} ${OUTPUT_FILE}"
              "  pbm print ${PDF_FILE}"
-             "  pbm help"]
+             "  pbm help"
+
+             ""
+
+             "${BOOKMARK_FILE} format:"
+             "Contents 3"
+             "Chapter 1 - The Great Thing You Don't Know 5"
+             " 1.1 - Why You've Never Heard of This 6"
+             "  1.1.1 - Lies 7"
+             "  1.1.2 - Conspiracies 10"
+             " 1.2 - Why No One Else Has Heard of This 15"
+             "Chapter 2 - Rethinking Everything 20"
+
+             ""
+
+             "${PAGE_OFFSET} is an optional parameter which allows you to"]
             (s/join \newline))))
 
 (defn -main [& args]
@@ -229,9 +262,15 @@
         (usage)
 
         (.contains ["add" "a"] (nth args 0))
-        (if (< (count args) 4)
-          (usage)
-          (add-bookmarks (nth args 1) (nth args 2) (nth args 3)))
+        (cond
+          (= (count args) 3)
+          (add-bookmarks (nth args 1) (nth args 2) (nth args 2))
+
+          (= (count args) 4)
+          (add-bookmarks (nth args 1) (nth args 2) (nth args 2) (nth args 3))
+
+          :else
+          (usage))
 
         (.contains ["print" "p"] (nth args 0))
         (if (< (count args) 2)
