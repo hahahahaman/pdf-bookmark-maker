@@ -47,9 +47,9 @@ Index 50
 
 ### make a standalone executable with lein-binplus
 
-Install lein-binplus
+https://github.com/BrunoBonacci/lein-binplus
 
-To install it in your ~/.lein/profiles.clj just add the dependency like:
+To Install lein-binplus in your ~/.lein/profiles.clj just add the dependency like:
 
 ``` clojure
 
@@ -59,9 +59,10 @@ To install it in your ~/.lein/profiles.clj just add the dependency like:
 
 ```
 
+Then inside this project's directory:
+
 `lein bin`
 
-https://github.com/BrunoBonacci/lein-binplus
 
 ### alternatively create an uberjar 
 
