@@ -57,8 +57,9 @@
     pdf
     (throw (IllegalArgumentException. (format "%s is not a PDF file" pdf-file-path)))))
 
-(defn print-bookmark [document bookmark indentation]
+(defn print-bookmark
   "Print bookmark tree structure, by traversing recursively"
+  [document bookmark indentation]
   (let [current (atom (.getFirstChild bookmark))]
     (while @current
       (print (s/join [indentation (.getTitle @current)]))
@@ -70,7 +71,7 @@
               (instance? PDNamedDestination dest)
               (let [pd (-> (.getDocumentCatalog document) (.findNamedDestinationPage dest))]
                 (when pd
-                  (println (s/join " " (inc (.retrievePageNumber pd))))))
+                  (println (inc (.retrievePageNumber pd)))))
 
               ;; dest
               ;; (println (s/join  " " (-> @current
@@ -85,7 +86,7 @@
                       (println (s/join [" " (inc (.retrievePageNumber pd))])))
 
                     (instance? PDNamedDestination (.getDestination action))
-                    (if-let [pd (-> document (.getDocumentCatalog)
+                    (when-let [pd (-> document (.getDocumentCatalog)
                                     (.findNamedDestinationPage (.getDestination action)))]
                       (println (s/join [" " (inc (.retrievePageNumber pd))])))
 
