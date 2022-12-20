@@ -28,7 +28,7 @@
   (with-open [rdr (io/reader filepath)]
     (doseq [line (line-seq rdr)]
       (let [arr (s/split line #" ")
-            num (Long/parseLong (last arr))]
+            num (parse-long (last arr))]
         (println (s/join " " (-> arr pop (conj (+ offset num)))))))))
 
 (defn try-get-as-pdf [pdf-file-path]
@@ -57,8 +57,9 @@
     pdf
     (throw (IllegalArgumentException. (format "%s is not a PDF file" pdf-file-path)))))
 
-(defn print-bookmark [document bookmark indentation]
+(defn print-bookmark
   "Print bookmark tree structure, by traversing recursively"
+  [document bookmark indentation]
   (let [current (atom (.getFirstChild bookmark))]
     (while @current
       (print (s/join [indentation (.getTitle @current)]))
@@ -123,15 +124,10 @@
   (try (read-string str)
        (catch Exception _)))
 
-(def txt-path "resources/a.txt")
-(def pdf-path "resources/HeinzVonFoerster-UnderstandingUnderstanding.pdf")
-(def output-path "resources/test.pdf")
-
-(defn pop-atom! [a]
-  (swap! a pop))
-
-(defn set-atom! [a val]
-  (swap! a (fn [x] val)))
+(comment
+  (def txt-path "resources/a.txt")
+  (def pdf-path "resources/HeinzVonFoerster-UnderstandingUnderstanding.pdf")
+  (def output-path "resources/test.pdf"))
 
 (defn conj-atom! [a val]
   (swap! a (fn [x] (conj x val))))
@@ -152,7 +148,7 @@
              dest (PDPageFitWidthDestination.)
              error (atom false)
              set-error! (fn [msg]
-                          (set-atom! error true)
+                          (reset! error true)
                           (println msg))]
          (let [bookmark-stack (atom '())
                prev-num-indents (atom 0)
@@ -194,7 +190,7 @@
                            (if (= num-indents 0)
                              (do
                                (.addLast outline bookmark)
-                               (set-atom! bookmark-stack (list bookmark)))
+                               (reset! bookmark-stack (list bookmark)))
 
                              (cond
                                (> num-indents @prev-num-indents)
@@ -202,23 +198,23 @@
                                  (set-error! (str "ERROR: Bookmark file too many indents. line: " @line-num))
                                  (do
                                    (.addLast (peek @bookmark-stack) bookmark)
-                                   (conj-atom! bookmark-stack bookmark)))
+                                   (swap! bookmark-stack conj bookmark)))
 
                                (= num-indents @prev-num-indents)
                                (do
-                                 (pop-atom! bookmark-stack)
+                                 (swap! bookmark-stack pop)
                                  (.addLast (peek @bookmark-stack) bookmark)
-                                 (conj-atom! bookmark-stack bookmark))
+                                 (swap! bookmark-stack conj bookmark))
 
                                :else
                                (if (-> (inc (- @prev-num-indents num-indents)) (> (count @bookmark-stack)))
                                  (set-error! (str "ERROR: Bookmark file too many indents. line:" @line-num))
                                  (do
                                    (dotimes [x (inc (- @prev-num-indents num-indents))]
-                                     (pop-atom! bookmark-stack))
+                                     (swap! bookmark-stack pop))
                                    (.addLast (peek @bookmark-stack) bookmark)
-                                   (conj-atom! bookmark-stack bookmark)))))
-                           (set-atom! prev-num-indents num-indents))))))))
+                                   (swap! bookmark-stack conj bookmark)))))
+                           (reset! prev-num-indents num-indents))))))))
 
          (when (not @error)
            (println "Saving PDF to" output-path)
