@@ -19,7 +19,7 @@ Exception in thread "main" java.lang.IllegalArgumentException: Don't know how to
 	at pdf_bookmark_maker.core$_main.doInvoke(core.clj:256)
 	at clojure.lang.RestFn.applyTo(RestFn.java:137)
 	at pdf_bookmark_maker.core.main(Unknown Source)
-* TODO copy stuff from pdfbox links
+* DONE copy stuff from pdfbox links
 https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/CreateBookmarks.java?view=markup
 
 https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/PrintBookmarks.java?view=markup
