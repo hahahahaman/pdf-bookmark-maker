@@ -1,0 +1,31 @@
+#+title: Todo
+
+* DONE error when printing, must have been a recent change
+
+pbm p "/home/demonseaman/Downloads/_new_books/Remzi H Arpaci-Dusseau, Andrea C Arpaci-Dusseau - Operating Systems_ Three Easy Pieces (2020).pdf"
+
+Exception in thread "main" java.lang.IllegalArgumentException: Don't know how to create ISeq from: java.lang.Long
+	at clojure.lang.RT.seqFrom(RT.java:557)
+	at clojure.lang.RT.seq(RT.java:537)
+	at clojure.lang.RT.first(RT.java:693)
+	at clojure.core$first__5384.invokeStatic(core.clj:55)
+	at clojure.string$join.invokeStatic(string.clj:180)
+	at clojure.string$join.invoke(string.clj:180)
+	at pdf_bookmark_maker.core$print_bookmark.invokeStatic(core.clj:73)
+	at pdf_bookmark_maker.core$print_bookmark.invoke(core.clj:60)
+	at pdf_bookmark_maker.core$print_bookmarks.invokeStatic(core.clj:108)
+	at pdf_bookmark_maker.core$print_bookmarks.invoke(core.clj:105)
+	at pdf_bookmark_maker.core$_main.invokeStatic(core.clj:278)
+	at pdf_bookmark_maker.core$_main.doInvoke(core.clj:256)
+	at clojure.lang.RestFn.applyTo(RestFn.java:137)
+	at pdf_bookmark_maker.core.main(Unknown Source)
+* TODO copy stuff from pdfbox links
+https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/CreateBookmarks.java?view=markup
+
+https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/PrintBookmarks.java?view=markup
+* DONE error while printing ??
+
+Dec 23, 2022 2:17:30 PM org.apache.pdfbox.cos.COSDocument finalize
+WARNING: Warning: You did not close a PDF Document
+
+easy fix just need to call .close document

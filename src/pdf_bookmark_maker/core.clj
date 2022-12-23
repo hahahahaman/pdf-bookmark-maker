@@ -27,12 +27,12 @@
   [filepath offset]
   (with-open [rdr (io/reader filepath)]
     (doseq [line (line-seq rdr)]
-      (let [arr (s/split line #" ")
+      (let [arr (s/split line #"\s")
             num (parse-long (last arr))]
         (println (s/join " " (-> arr pop (conj (+ offset num)))))))))
 
-(defn try-get-as-pdf [pdf-file-path]
-  (let [^File pdf-file (io/as-file pdf-file-path)
+(defn try-get-as-pdf [pdf-filepath]
+  (let [^File pdf-file (io/as-file pdf-filepath)
         random-access-file (RandomAccessFile. pdf-file "r")
         parser (PDFParser. random-access-file)]
     (try
@@ -40,75 +40,102 @@
       (.getPDDocument parser)
       (catch Exception _))))
 
-(defn is-pdf?
-  "Confirm that the PDF supplied is really a PDF"
-  [pdf-file-path]
-  (if-let [pdf (try-get-as-pdf pdf-file-path)]
-    (try
-      (not (nil? pdf))
-      (finally
-        (.close pdf)))
-    false))
+(comment
+  (defn is-pdf?
+    "filepath leads to PDF?"
+    [pdf-filepath]
+    (if-let [pdf (try-get-as-pdf pdf-filepath)]
+      (try
+        (some? pdf)
+        (finally
+          (.close pdf)))
+      false)))
 
 (defn load-pdf
   "Load a given PDF only after checking if it really is a PDF"
-  [pdf-file-path]
-  (if-let [pdf (try-get-as-pdf pdf-file-path)]
+  [pdf-filepath]
+  (if-let [pdf (try-get-as-pdf pdf-filepath)]
     pdf
-    (throw (IllegalArgumentException. (format "%s is not a PDF file" pdf-file-path)))))
+    (throw (IllegalArgumentException. (format "%s is not a PDF file" pdf-filepath)))))
 
 (defn print-bookmark
-  "Print bookmark tree structure, by traversing recursively"
-  [document bookmark indentation]
+  "Print bookmark tree structure. Depth-first search.
+
+  Based on:
+  https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/PrintBookmarks.java?view=markup
+  "
+
+  [document bookmark current-indentation]
   (let [current (atom (.getFirstChild bookmark))]
     (while @current
-      (print (s/join [indentation (.getTitle @current)]))
-      (let [dest (.getDestination @current)
-            action (.getAction @current)]
-        (cond (instance? PDPageDestination dest)
-              (println (s/join [" " (inc (.retrievePageNumber dest))]))
+      (let [title (.getTitle @current)
+            pd (.getDestination @current) ;; page destination
+            gta (.getAction @current) ;; go to action
 
-              (instance? PDNamedDestination dest)
-              (let [pd (-> (.getDocumentCatalog document) (.findNamedDestinationPage dest))]
-                (when pd
-                  (println (inc (.retrievePageNumber pd)))))
+            pd-page-num
+            (cond (instance? PDPageDestination pd)
+                  (.retrievePageNumber pd)
 
-              ;; dest
-              ;; (println (s/join  " " (-> @current
-              ;;                           (.getDestination)
-              ;;                           (.getClass)
-              ;;                           (.getSimpleName))))
-              )
+                  (instance? PDNamedDestination pd)
+                  (let [pd (.. document
+                               (getDocumentCatalog)
+                               (findNamedDestinationPage pd))]
+                    (when pd
+                      (.retrievePageNumber pd)))
 
-        (cond (instance? PDActionGoTo action)
-              (cond (instance? PDPageDestination (.getDestination action))
-                    (let [pd (.getDestination action)]
-                      (println (s/join [" " (inc (.retrievePageNumber pd))])))
+                  pd
+                  (println
+                   (str current-indentation
+                        "Destination class: "
+                        (.. @current
+                            (getDestination)
+                            (getClass)
+                            (getSimpleName)))))
 
-                    (instance? PDNamedDestination (.getDestination action))
-                    (when-let [pd (-> document (.getDocumentCatalog)
-                                    (.findNamedDestinationPage (.getDestination action)))]
-                      (println (s/join [" " (inc (.retrievePageNumber pd))])))
+            gta-page-num
+            (cond (instance? PDActionGoTo gta)
+                  (cond (instance? PDPageDestination (.getDestination gta))
+                        (let [pd (.getDestination gta)]
+                          (.retrievePageNumber pd))
 
-                    ;; :else
-                    ;; (println (s/join [" " (-> action (.getDestination) (.getClass) (.getSimpleName))]))
-                    )
+                        (instance? PDNamedDestination (.getDestination gta))
+                        (when-let [pd (-> document
+                                          (.getDocumentCatalog)
+                                          (.findNamedDestinationPage
+                                           (.getDestination gta)))]
+                          (.retrievePageNumber pd))
 
-              ;; action
-              ;; (println indentation "Action class: " (-> current
-              ;;                                           (.getAction)
-              ;;                                           (.getClass)
-              ;;                                           (.getSimpleName)))
-              )
-        (print-bookmark document @current (s/join [indentation indent]))
+                        :else
+                        (println (str current-indentation
+                                      "Destination class: "
+                                      (-> gta
+                                          (.getDestination)
+                                          (.getClass)
+                                          (.getSimpleName)))))
+
+                  gta
+                  (println current-indentation "Action class: "
+                           (-> current
+                               (.getAction)
+                               (.getClass)
+                               (.getSimpleName))))]
+
+        (when (or pd-page-num gta-page-num)
+          (println (str current-indentation title " "
+                        (inc (if pd-page-num pd-page-num gta-page-num)))))
+
+        ;; print all children
+        (print-bookmark document @current (str current-indentation indent))
         (swap! current (fn [x] (.getNextSibling x)))))))
 
-(defn print-bookmarks [pdf-file-path]
-  (let [document (load-pdf pdf-file-path)
+(defn print-bookmarks [pdf-filepath]
+  (let [document (load-pdf pdf-filepath)
         outline (-> document (.getDocumentCatalog) (.getDocumentOutline))]
     (print-bookmark document outline "")
     ;; (println "# pages:" (.getNumberOfPages document))
-    ))
+    ;;
+    (when document
+      (.close document))))
 
 (defn num-front-spaces [str]
   (loop [i 0
@@ -129,17 +156,20 @@
   (def pdf-path "resources/HeinzVonFoerster-UnderstandingUnderstanding.pdf")
   (def output-path "resources/test.pdf"))
 
-(defn conj-atom! [a val]
-  (swap! a (fn [x] (conj x val))))
-
 (defn add-bookmarks
-  ([text-file-path pdf-file-path]
-   (add-bookmarks text-file-path pdf-file-path pdf-file-path))
-  ([text-file-path pdf-file-path output-path]
-   (add-bookmarks text-file-path pdf-file-path output-path 0))
-  ([text-file-path pdf-file-path output-path offset]
-   (println "Start adding bookmarks from" text-file-path "to" pdf-file-path "Output at:" output-path)
-   (let [document (load-pdf pdf-file-path)]
+  "Add bookmarks to pdf.
+
+  Based on:
+  https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/CreateBookmarks.java?view=markup
+  "
+  ([bookmark-filepath pdf-filepath]
+   (add-bookmarks bookmark-filepath pdf-filepath pdf-filepath))
+  ([bookmark-filepath pdf-filepath output-path]
+   (add-bookmarks bookmark-filepath pdf-filepath output-path 0))
+  ([bookmark-filepath pdf-filepath output-path offset]
+   (println "Adding bookmarks from" bookmark-filepath "-->" pdf-filepath)
+   ;; (println "Output at:" output-path)
+   (let [document (load-pdf pdf-filepath)]
      (if (.isEncrypted document)
        (println "Error: Cannot add bookmarks to encrypted document.")
 
@@ -153,7 +183,7 @@
          (let [bookmark-stack (atom '())
                prev-num-indents (atom 0)
                line-num (atom 0)]
-           (with-open [rdr (io/reader text-file-path)]
+           (with-open [rdr (io/reader bookmark-filepath)]
              (doseq [line (line-seq rdr)
                      :while (not @error)]
                (swap! line-num inc)
@@ -250,28 +280,30 @@
             (s/join \newline))))
 
 (defn -main [& args]
-  (cond (or (= (count args) 0)
-            (not (.contains ["help" "h" "add" "a" "print" "p"] (nth args 0))))
-        (usage)
+  (let [[op arg1 arg2 arg3] args
+        num-args (count args)]
+    (cond (or (= num-args 0)
+              (not (.contains ["help" "h" "add" "a" "print" "p"] op)))
+          (usage)
 
-        (.contains  ["help" "h"] (nth args 0))
-        (usage)
+          (.contains  ["help" "h"] op)
+          (usage)
 
-        (.contains ["add" "a"] (nth args 0))
-        (cond
-          (= (count args) 3)
-          (add-bookmarks (nth args 1) (nth args 2) (nth args 2))
+          (.contains ["add" "a"] op)
+          (cond
+            (= num-args 3)
+            (add-bookmarks arg1 arg2 arg2)
 
-          (= (count args) 4)
-          (add-bookmarks (nth args 1) (nth args 2) (nth args 2) (nth args 3))
+            (= num-args 4)
+            (add-bookmarks arg1 arg2 arg2 arg3)
+
+            :else
+            (usage))
+
+          (.contains ["print" "p"] op)
+          (if (< num-args 2)
+            (usage)
+            (print-bookmarks arg1))
 
           :else
-          (usage))
-
-        (.contains ["print" "p"] (nth args 0))
-        (if (< (count args) 2)
-          (usage)
-          (print-bookmarks (nth args 1)))
-
-        :else
-        (usage)))
+          (usage))))

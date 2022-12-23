@@ -1,6 +1,6 @@
 # pdf-bookmark-maker
 
-Command line tool to create bookmarks for PDFs.
+Clojure and the PDFBox Java library to do stuff with PDF files.
 
 ## Usage
 
@@ -45,7 +45,33 @@ Contents 14
 Index 50
 ```
 
-### make a standalone executable with lein-binplus
+## Apache PDFBox 
+
+https://pdfbox.apache.org/
+
+This tool uses the PDFBox java library. The code is based on the examples provided by the library.
+
+### Examples of how to use the library
+
+https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/
+
+#### Create Bookmarks
+
+https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/CreateBookmarks.java?view=markup
+
+#### Print Bookmarks
+
+https://svn.apache.org/viewvc/pdfbox/trunk/examples/src/main/java/org/apache/pdfbox/examples/pdmodel/PrintBookmarks.java?view=markup
+
+## Alternatives
+
+Other tools that may help:
+
+https://www.pdflabs.com/blog/export-and-import-pdf-bookmarks/
+
+https://commons.wikimedia.org/wiki/Help:Creating_an_outline_for_PDF_and_DjVu
+
+## make a standalone executable with lein-binplus
 
 https://github.com/BrunoBonacci/lein-binplus
 
